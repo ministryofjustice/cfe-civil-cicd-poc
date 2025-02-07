@@ -13,6 +13,7 @@ test:
   primary:
     <<: *default
     database: cfe_civil_test
+    host: <%= ENV['POSTGRES_HOST'] %>
 
 production:
   primary:

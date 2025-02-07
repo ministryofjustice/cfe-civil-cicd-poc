@@ -115,10 +115,7 @@ jobs:
           bundle exec rake db:migrate
         env:
           GOOGLE_SHEETS_PRIVATE_KEY: ${{ secrets.GOOGLE_SHEETS_PRIVATE_KEY }}
-          POSTGRES_USER: postgres
-          POSTGRES_DB: cfe_civil_test
           POSTGRES_HOST: localhost
-          POSTGRES_PORT: 5432
   
       - name: Run cucumber tests
         run: bundle exec cucumber --format html --out report.html --format pretty
