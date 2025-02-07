@@ -83,7 +83,7 @@ jobs:
           POSTGRES_USER: postgres
 
       - name: Check coverage
-        run: bundle exec undercover -c origin/main -l coverage/lcov.info
+        run: bundle exec undercover -l coverage/lcov.info
 
   integration_tests:
     runs-on: ubuntu-latest
