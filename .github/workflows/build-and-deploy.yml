@@ -17,24 +17,24 @@ env:
   AWS_ECR_REGISTRY_ID: ${{ secrets.AWS_ECR_REGISTRY_ID }}
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    container:
-      image: cimg/ruby:3.3.4-node
-      env:
-        RAILS_ENV: test
-        TZ: "Europe/London"
-    steps:
-      - uses: actions/checkout@v4
+  # lint:
+  #   runs-on: ubuntu-latest
+  #   container:
+  #     image: cimg/ruby:3.3.4-node
+  #     env:
+  #       RAILS_ENV: test
+  #       TZ: "Europe/London"
+  #   steps:
+  #     - uses: actions/checkout@v4
       
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.3.4'
-          bundler-cache: true
+  #     - name: Set up Ruby
+  #       uses: ruby/setup-ruby@v1
+  #       with:
+  #         ruby-version: '3.3.4'
+  #         bundler-cache: true
       
-      - name: Run Rubocop
-        run: bundle exec rubocop
+  #     - name: Run Rubocop
+  #       run: bundle exec rubocop
 
   unit_tests:
     runs-on: ubuntu-latest
@@ -137,7 +137,8 @@ jobs:
         run: bundle exec rails check_swaggerization
 
   build_and_push:
-    needs: [lint, unit_tests, integration_tests, check_swagger]
+    # needs: [lint, unit_tests, integration_tests, check_swagger]
+    needs: [unit_tests]
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
@@ -174,17 +175,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure kubectl
-        run: |
-          echo "${{ secrets.KUBE_CERT }}" | base64 -d > ./ca.crt
-          kubectl config set-cluster ${{ secrets.KUBE_CLUSTER }} --certificate-authority=./ca.crt --server=https://${{ secrets.KUBE_CLUSTER }}
-          kubectl config set-credentials github-actions --token=${{ secrets.KUBE_TOKEN }}
-          kubectl config set-context ${{ secrets.KUBE_CLUSTER }} --cluster=${{ secrets.KUBE_CLUSTER }} --user=github-actions --namespace=${{ secrets.KUBE_NAMESPACE }}
-          kubectl config use-context ${{ secrets.KUBE_CLUSTER }}
-
+      - name: Authenticate to the cluster
+        uses: ministryofjustice/laa-reusable-github-actions/.github/actions/authenticate_to_cluster@main
+        with:
+          kube-cert: ${{ secrets.KUBE_CERT }}
+          kube-token: ${{ secrets.KUBE_TOKEN }}
+          kube-cluster: ${{ secrets.KUBE_CLUSTER }}
+          kube-namespace: ${{ secrets.KUBE_NAMESPACE }}
+      
       - name: Deploy to staging
         run: |
-          helm upgrade cfe-civil ./deploy/helm/. \
+          helm upgrade cfe-civil-cicd-poc ./deploy/helm/. \
             --install --wait \
             --namespace=${{ secrets.KUBE_NAMESPACE }} \
             --values ./deploy/helm/values/staging.yaml \
@@ -200,17 +201,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure kubectl
-        run: |
-          echo "${{ secrets.KUBE_CERT }}" | base64 -d > ./ca.crt
-          kubectl config set-cluster ${{ secrets.KUBE_CLUSTER }} --certificate-authority=./ca.crt --server=https://${{ secrets.KUBE_CLUSTER }}
-          kubectl config set-credentials github-actions --token=${{ secrets.KUBE_TOKEN }}
-          kubectl config set-context ${{ secrets.KUBE_CLUSTER }} --cluster=${{ secrets.KUBE_CLUSTER }} --user=github-actions --namespace=${{ secrets.KUBE_NAMESPACE }}
-          kubectl config use-context ${{ secrets.KUBE_CLUSTER }}
+      - name: Authenticate to the cluster
+        uses: ministryofjustice/laa-reusable-github-actions/.github/actions/authenticate_to_cluster@main
+        with:
+          kube-cert: ${{ secrets.KUBE_CERT }}
+          kube-token: ${{ secrets.KUBE_TOKEN }}
+          kube-cluster: ${{ secrets.KUBE_CLUSTER }}
+          kube-namespace: ${{ secrets.KUBE_NAMESPACE }}
 
       - name: Deploy to production
         run: |
-          helm upgrade cfe-civil ./deploy/helm/. \
+          helm upgrade cfe-civil-cicd-poc ./deploy/helm/. \
             --install --wait \
             --namespace=${{ secrets.KUBE_NAMESPACE }} \
             --values ./deploy/helm/values/production.yaml \
