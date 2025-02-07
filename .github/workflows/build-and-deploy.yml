@@ -70,7 +70,9 @@ jobs:
         run: |
           bundle exec rake db:schema:load
           bundle exec rake db:migrate
-
+        env:
+          GOOGLE_SHEETS_PRIVATE_KEY: ${{ secrets.GOOGLE_SHEETS_PRIVATE_KEY }}
+  
       - name: Run tests
         run: bundle exec rake spec
 
@@ -107,7 +109,9 @@ jobs:
         run: |
           bundle exec rake db:schema:load
           bundle exec rake db:migrate
-
+        env:
+          GOOGLE_SHEETS_PRIVATE_KEY: ${{ secrets.GOOGLE_SHEETS_PRIVATE_KEY }}
+  
       - name: Run cucumber tests
         run: bundle exec cucumber --format html --out report.html --format pretty
 
@@ -139,6 +143,8 @@ jobs:
 
       - name: Check swagger docs
         run: bundle exec rails check_swaggerization
+        env:
+          GOOGLE_SHEETS_PRIVATE_KEY: ${{ secrets.GOOGLE_SHEETS_PRIVATE_KEY }}
 
   build_and_push:
     # needs: [lint, unit_tests, integration_tests, check_swagger]
