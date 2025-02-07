@@ -1,5 +1,9 @@
 name: CI/CD Pipeline
 
+# GitHub Actions needs setup:
+#   Repository secrets:
+#     GOOGLE_SHEETS_PRIVATE_KEY
+
 on:
   push:
     branches: [ main ]
@@ -108,7 +112,7 @@ jobs:
         run: bundle exec cucumber --format html --out report.html --format pretty
 
       - name: Upload test report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: cucumber-report
           path: report.html
