@@ -164,7 +164,7 @@ jobs:
   build_and_push:
     # needs: [lint, unit_tests, integration_tests, check_swagger]
     needs: [unit_tests]
-    if: github.ref == 'refs/heads/main'
+    # if: github.ref == 'refs/heads/main'  # HACK during development
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -211,54 +211,54 @@ jobs:
       #       ${{ env.AWS_ECR_REGISTRY_ID }}.dkr.ecr.${{ env.ECR_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
       #       ${{ env.AWS_ECR_REGISTRY_ID }}.dkr.ecr.${{ env.ECR_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:production-${{ github.sha }}
 
-  deploy_staging:
-    needs: build_and_push
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    environment: staging
+  # deploy_staging:
+  #   needs: build_and_push
+  #   if: github.ref == 'refs/heads/main'
+  #   runs-on: ubuntu-latest
+  #   environment: staging
     
-    steps:
-      - uses: actions/checkout@v4
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - name: Authenticate to the cluster
-        uses: ministryofjustice/laa-reusable-github-actions/.github/actions/authenticate_to_cluster@main
-        with:
-          kube-cert: ${{ secrets.KUBE_CERT }}
-          kube-token: ${{ secrets.KUBE_TOKEN }}
-          kube-cluster: ${{ secrets.KUBE_CLUSTER }}
-          kube-namespace: ${{ secrets.KUBE_NAMESPACE }}
+  #     - name: Authenticate to the cluster
+  #       uses: ministryofjustice/laa-reusable-github-actions/.github/actions/authenticate_to_cluster@main
+  #       with:
+  #         kube-cert: ${{ secrets.KUBE_CERT }}
+  #         kube-token: ${{ secrets.KUBE_TOKEN }}
+  #         kube-cluster: ${{ secrets.KUBE_CLUSTER }}
+  #         kube-namespace: ${{ secrets.KUBE_NAMESPACE }}
       
-      - name: Deploy to staging
-        run: |
-          helm upgrade cfe-civil-cicd-poc ./deploy/helm/. \
-            --install --wait \
-            --namespace=${{ secrets.KUBE_NAMESPACE }} \
-            --values ./deploy/helm/values/staging.yaml \
-            --set image.repository="${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}" \
-            --set image.tag="${{ github.sha }}"
+  #     - name: Deploy to staging
+  #       run: |
+  #         helm upgrade cfe-civil-cicd-poc ./deploy/helm/. \
+  #           --install --wait \
+  #           --namespace=${{ secrets.KUBE_NAMESPACE }} \
+  #           --values ./deploy/helm/values/staging.yaml \
+  #           --set image.repository="${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}" \
+  #           --set image.tag="${{ github.sha }}"
 
-  deploy_production:
-    needs: deploy_staging
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    environment: production
+  # deploy_production:
+  #   needs: deploy_staging
+  #   if: github.ref == 'refs/heads/main'
+  #   runs-on: ubuntu-latest
+  #   environment: production
     
-    steps:
-      - uses: actions/checkout@v4
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - name: Authenticate to the cluster
-        uses: ministryofjustice/laa-reusable-github-actions/.github/actions/authenticate_to_cluster@main
-        with:
-          kube-cert: ${{ secrets.KUBE_CERT }}
-          kube-token: ${{ secrets.KUBE_TOKEN }}
-          kube-cluster: ${{ secrets.KUBE_CLUSTER }}
-          kube-namespace: ${{ secrets.KUBE_NAMESPACE }}
+  #     - name: Authenticate to the cluster
+  #       uses: ministryofjustice/laa-reusable-github-actions/.github/actions/authenticate_to_cluster@main
+  #       with:
+  #         kube-cert: ${{ secrets.KUBE_CERT }}
+  #         kube-token: ${{ secrets.KUBE_TOKEN }}
+  #         kube-cluster: ${{ secrets.KUBE_CLUSTER }}
+  #         kube-namespace: ${{ secrets.KUBE_NAMESPACE }}
 
-      - name: Deploy to production
-        run: |
-          helm upgrade cfe-civil-cicd-poc ./deploy/helm/. \
-            --install --wait \
-            --namespace=${{ secrets.KUBE_NAMESPACE }} \
-            --values ./deploy/helm/values/production.yaml \
-            --set image.repository="${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}" \
-            --set image.tag="${{ github.sha }}"
+  #     - name: Deploy to production
+  #       run: |
+  #         helm upgrade cfe-civil-cicd-poc ./deploy/helm/. \
+  #           --install --wait \
+  #           --namespace=${{ secrets.KUBE_NAMESPACE }} \
+  #           --values ./deploy/helm/values/production.yaml \
+  #           --set image.repository="${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}" \
+  #           --set image.tag="${{ github.sha }}"
