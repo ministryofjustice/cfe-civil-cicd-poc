@@ -73,7 +73,8 @@ jobs:
         env:
           GOOGLE_SHEETS_PRIVATE_KEY: ${{ secrets.GOOGLE_SHEETS_PRIVATE_KEY }}
           POSTGRES_HOST: localhost
-  
+          POSTGRES_USER: postgres
+
       - name: Run tests
         run: bundle exec rake spec
 
@@ -116,7 +117,8 @@ jobs:
         env:
           GOOGLE_SHEETS_PRIVATE_KEY: ${{ secrets.GOOGLE_SHEETS_PRIVATE_KEY }}
           POSTGRES_HOST: localhost
-  
+          POSTGRES_USER: postgres
+
       - name: Run cucumber tests
         run: bundle exec cucumber --format html --out report.html --format pretty
 

@@ -12,8 +12,9 @@ development:
 test:
   primary:
     <<: *default
-    database: cfe_civil_test
     host: <%= ENV['POSTGRES_HOST'] %>
+    username: <%= ENV['POSTGRES_USER'] %>
+    database: cfe_civil_test
 
 production:
   primary:
