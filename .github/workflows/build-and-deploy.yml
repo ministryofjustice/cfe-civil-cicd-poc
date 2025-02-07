@@ -167,13 +167,15 @@ jobs:
     # if: github.ref == 'refs/heads/main'  # HACK during development
     runs-on: ubuntu-latest
     permissions:
-      id-token: write
-      contents: read
+      id-token: write  # This allows AWS authentication via OIDC
+      contents: read  # This allows actions/checkout
     
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
+      - name: Authenticate with AWS and assume ECR role
+        # This requires on resources/ecr.tf having `github_repositories` configured
+        # See: https://user-guide.cloud-platform.service.justice.gov.uk/documentation/deploying-an-app/deploying-an-example-application.html
         uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 #v4.0.2
         with:
           role-to-assume: ${{ secrets.ECR_ROLE_TO_ASSUME }}
