@@ -72,6 +72,7 @@ jobs:
           bundle exec rake db:migrate
         env:
           GOOGLE_SHEETS_PRIVATE_KEY: ${{ secrets.GOOGLE_SHEETS_PRIVATE_KEY }}
+          POSTGRES_HOST: localhost
   
       - name: Run tests
         run: bundle exec rake spec
@@ -105,9 +106,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y postgresql-client cmake
 
-      - name: Wait for PostgreSQL to start
-        run: sleep 10
-
       - name: Check PostgreSQL service
         run: pg_isready -h localhost -p 5432
 
@@ -117,6 +115,10 @@ jobs:
           bundle exec rake db:migrate
         env:
           GOOGLE_SHEETS_PRIVATE_KEY: ${{ secrets.GOOGLE_SHEETS_PRIVATE_KEY }}
+          POSTGRES_USER: postgres
+          POSTGRES_DB: cfe_civil_test
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
   
       - name: Run cucumber tests
         run: bundle exec cucumber --format html --out report.html --format pretty
