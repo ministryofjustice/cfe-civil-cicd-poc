@@ -1,0 +1,266 @@
+name: CI/CD Pipeline
+
+# GitHub Actions needs setup:
+#   Repository secrets:
+#     GOOGLE_SHEETS_PRIVATE_KEY
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ '**' ]
+
+env:
+  RAILS_ENV: test
+  TZ: "Europe/London"
+  RUBY_YJIT_ENABLE: "1"
+  POSTGRES_USER: postgres
+  POSTGRES_DB: cfe_civil_test
+  ECR_REGION: ${{ secrets.ECR_REGION }}
+  ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+  AWS_ECR_REGISTRY_ID: ${{ secrets.AWS_ECR_REGISTRY_ID }}
+
+jobs:
+  # lint:
+  #   runs-on: ubuntu-latest
+  #   container:
+  #     image: cimg/ruby:3.3.4-node
+  #     env:
+  #       RAILS_ENV: test
+  #       TZ: "Europe/London"
+  #   steps:
+  #     - uses: actions/checkout@v4
+      
+  #     - name: Set up Ruby
+  #       uses: ruby/setup-ruby@v1
+  #       with:
+  #         ruby-version: '3.3.4'
+  #         bundler-cache: true
+      
+  #     - name: Run Rubocop
+  #       run: bundle exec rubocop
+
+  unit_tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: cimg/postgres:14.8
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: cfe_civil_test
+        ports:
+          - 5432:5432
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3.4'
+          bundler-cache: true
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client cmake
+
+      - name: Setup Database
+        run: |
+          bundle exec rake db:schema:load
+          bundle exec rake db:migrate
+        env:
+          GOOGLE_SHEETS_PRIVATE_KEY: ${{ secrets.GOOGLE_SHEETS_PRIVATE_KEY }}
+          POSTGRES_HOST: localhost
+          POSTGRES_USER: postgres
+
+      - name: Run tests
+        run: bundle exec rake spec
+        env:
+          GOOGLE_SHEETS_PRIVATE_KEY: ${{ secrets.GOOGLE_SHEETS_PRIVATE_KEY }}
+          POSTGRES_HOST: localhost
+          POSTGRES_USER: postgres
+
+      - name: Check coverage
+        run: bundle exec undercover -l coverage/lcov.info
+
+  integration_tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: cimg/postgres:14.8
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: cfe_civil_test
+        ports:
+          - 5432:5432
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3.4'
+          bundler-cache: true
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client cmake
+
+      - name: Check PostgreSQL service
+        run: pg_isready -h localhost -p 5432
+
+      - name: Setup Database
+        run: |
+          bundle exec rake db:schema:load
+          bundle exec rake db:migrate
+        env:
+          GOOGLE_SHEETS_PRIVATE_KEY: ${{ secrets.GOOGLE_SHEETS_PRIVATE_KEY }}
+          POSTGRES_HOST: localhost
+          POSTGRES_USER: postgres
+
+      - name: Run cucumber tests
+        run: bundle exec cucumber --format html --out report.html --format pretty
+        env:
+          GOOGLE_SHEETS_PRIVATE_KEY: ${{ secrets.GOOGLE_SHEETS_PRIVATE_KEY }}
+          POSTGRES_HOST: localhost
+          POSTGRES_USER: postgres
+
+      - name: Upload test report
+        uses: actions/upload-artifact@v4
+        with:
+          name: cucumber-report
+          path: report.html
+
+  check_swagger:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: cimg/postgres:14.8
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: cfe_civil_test
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3.4'
+          bundler-cache: true
+
+      - name: Check swagger docs
+        run: bundle exec rails check_swaggerization
+        env:
+          GOOGLE_SHEETS_PRIVATE_KEY: ${{ secrets.GOOGLE_SHEETS_PRIVATE_KEY }}
+
+  build_and_push:
+    # needs: [lint, unit_tests, integration_tests, check_swagger]
+    needs: [unit_tests]
+    # if: github.ref == 'refs/heads/main'  # HACK during development
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write  # This allows AWS authentication via OIDC
+      contents: read  # This allows actions/checkout
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate with AWS and assume ECR role
+        # This requires on resources/ecr.tf having `github_repositories` configured
+        # See: https://user-guide.cloud-platform.service.justice.gov.uk/documentation/deploying-an-app/deploying-an-example-application.html
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 #v4.0.2
+        with:
+          role-to-assume: ${{ secrets.ECR_ROLE_TO_ASSUME }}
+          aws-region: ${{ vars.ECR_REGION }}
+        
+      - name: Log in to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+        id: login-ecr
+
+      - name: Build Docker image and push it to ECR
+        run: |
+          docker build -t $REGISTRY/$REPOSITORY:$IMAGE_TAG .
+          docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+          IMAGE_TAG: ${{ github.sha }}
+      
+        # - run: |
+        #   cat deployments/templates/deployment.yml | envsubst > deployments/deployment.yml
+        #   cat deployments/templates/ingress.yml | envsubst > deployments/ingress.yml
+        #   cat deployments/templates/service.yml | envsubst > deployments/service.yml
+        # env:
+        #   IMAGE_TAG: ${{ github.sha }}
+        #   REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        #   REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+        #   NAMESPACE: ${{ secrets.KUBE_NAMESPACE }}
+
+      # - name: Build and push Docker image
+      #   uses: docker/build-push-action@v5
+      #   with:
+      #     context: .
+      #     push: true
+      #     tags: |
+      #       ${{ env.AWS_ECR_REGISTRY_ID }}.dkr.ecr.${{ env.ECR_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+      #       ${{ env.AWS_ECR_REGISTRY_ID }}.dkr.ecr.${{ env.ECR_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:production-${{ github.sha }}
+
+  # deploy_staging:
+  #   needs: build_and_push
+  #   if: github.ref == 'refs/heads/main'
+  #   runs-on: ubuntu-latest
+  #   environment: staging
+    
+  #   steps:
+  #     - uses: actions/checkout@v4
+
+  #     - name: Authenticate to the cluster
+  #       uses: ministryofjustice/laa-reusable-github-actions/.github/actions/authenticate_to_cluster@main
+  #       with:
+  #         kube-cert: ${{ secrets.KUBE_CERT }}
+  #         kube-token: ${{ secrets.KUBE_TOKEN }}
+  #         kube-cluster: ${{ secrets.KUBE_CLUSTER }}
+  #         kube-namespace: ${{ secrets.KUBE_NAMESPACE }}
+      
+  #     - name: Deploy to staging
+  #       run: |
+  #         helm upgrade cfe-civil-cicd-poc ./deploy/helm/. \
+  #           --install --wait \
+  #           --namespace=${{ secrets.KUBE_NAMESPACE }} \
+  #           --values ./deploy/helm/values/staging.yaml \
+  #           --set image.repository="${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}" \
+  #           --set image.tag="${{ github.sha }}"
+
+  # deploy_production:
+  #   needs: deploy_staging
+  #   if: github.ref == 'refs/heads/main'
+  #   runs-on: ubuntu-latest
+  #   environment: production
+    
+  #   steps:
+  #     - uses: actions/checkout@v4
+
+  #     - name: Authenticate to the cluster
+  #       uses: ministryofjustice/laa-reusable-github-actions/.github/actions/authenticate_to_cluster@main
+  #       with:
+  #         kube-cert: ${{ secrets.KUBE_CERT }}
+  #         kube-token: ${{ secrets.KUBE_TOKEN }}
+  #         kube-cluster: ${{ secrets.KUBE_CLUSTER }}
+  #         kube-namespace: ${{ secrets.KUBE_NAMESPACE }}
+
+  #     - name: Deploy to production
+  #       run: |
+  #         helm upgrade cfe-civil-cicd-poc ./deploy/helm/. \
+  #           --install --wait \
+  #           --namespace=${{ secrets.KUBE_NAMESPACE }} \
+  #           --values ./deploy/helm/values/production.yaml \
+  #           --set image.repository="${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}" \
+  #           --set image.tag="${{ github.sha }}"
