@@ -4,7 +4,7 @@ git_source(:github) { |repo| "https://github.com/#{repo}.git" }
 ruby "3.3.4"
 
 # Bundle edge Rails instead: gem 'rails', github: 'rails/rails'
-gem "rails", "> 7.1", "< 7.2"
+gem "rails", ">= 7.1.5.2", "< 7.2"
 # Use postgresql as the database for Active Record
 # pg 1.5 introduces a deprecation warning that hasn't been fixed in Rails yet
 gem "pg", "< 1.6"
@@ -24,7 +24,7 @@ gem "faraday", "~> 1.10"
 
 gem "prometheus-client"
 
-gem "sentry-rails", ">= 5.8.0"
+gem "sentry-rails", ">= 5.20.0"
 gem "sentry-ruby"
 
 # Use Capistrano for deployment
@@ -53,37 +53,37 @@ gem "net-imap"
 gem "net-pop"
 gem "net-smtp"
 
-gem "rswag-api"
-gem "rswag-ui"
+gem "rswag-api", ">= 2.15.0"
+gem "rswag-ui", ">= 2.15.0"
 
-gem "exception_notification"
+gem "exception_notification", ">= 4.6.0"
 gem "govuk_notify_rails", "~> 3.0.0"
 
 # needed for diffing in re-runner tool
 gem "hashdiff"
 
-gem "lograge"
+gem "lograge", ">= 0.15.0"
 
 group :development, :test do
   gem "awesome_print"
   gem "bullet"
-  gem "dotenv-rails", ">= 2.8.1"
-  gem "factory_bot_rails", ">= 6.2.0"
+  gem "dotenv-rails", ">= 3.1.3"
+  gem "factory_bot_rails", ">= 6.4.4"
   gem "faker"
   # Call 'byebug' anywhere in the code to stop execution and get a debugger console
   gem "byebug", platforms: %i[mri mingw x64_mingw]
   gem "pry-byebug"
   gem "rack-mini-profiler", require: false
   gem "rspec_junit_formatter"
-  gem "rspec-rails", "~> 7.0"
-  gem "rswag-specs"
+  gem "rspec-rails", "~> 7.0", ">= 7.0.2"
+  gem "rswag-specs", ">= 2.15.0"
   gem "rubocop-govuk", require: false
   gem "rubocop-performance"
 
   # download spreadsheets
   gem "google_drive", ">= 3.0.7"
   # parse spreadsheets
-  gem "roo", "~> 2.10.0"
+  gem "roo", "~> 3.0.0"
 
   # This is needed to allow IntelliJ to run cucumber scenarios individually without producing
   # strange errors and not running the feature.
@@ -104,7 +104,7 @@ group :development do
 end
 
 group :test do
-  gem "cucumber-rails", require: false
+  gem "cucumber-rails", ">= 3.0.1", require: false
   gem "database_cleaner"
   gem "shoulda-matchers"
   gem "simplecov"
